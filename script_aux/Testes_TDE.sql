@@ -26,6 +26,7 @@ drop certificate cert_tde_GIGIOMACHINE
 DROP MASTER KEY 
 
 use master
+drop certificate cert_tde_GIGIOMACHINE
 DROP MASTER KEY 
 
 select * from sys.certificates
