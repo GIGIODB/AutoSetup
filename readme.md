@@ -4,7 +4,7 @@ Este repositório contém o projeto de setup de banco de dados automatizado, o o
 /* Aos poucos vou liberar as pastas de forma estruturada para facilitar a sua experiência */
 
  <div>
-  <a href="https://github.com/GIGIOBD/SQLSERVER">
+  <a href="https://github.com/TBDSUMARE/AutoSetup">
   <img align="center" height="200em" src="https://github-readme-stats.vercel.app/api?username=tbdsumare&show_icons=true&theme=dark&include_all_commits=true&count_private=true"/>
    
   <img align="center"  height="150" width="160" src="https://github.com/GIGIOBD/SQLSERVER/blob/main/github/icon/sql-server.png">      
