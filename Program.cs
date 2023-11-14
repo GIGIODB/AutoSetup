@@ -92,7 +92,7 @@ class Program
                 Console.Clear();
                 Console.WriteLine("Qual operação deseja realizar?");
                 Console.WriteLine("1 - Create Jobs Update Statistics \n" +
-                                    "2 - ** \n" +
+                                    "2 - Create Jobs Refresh all Procs \n" +
                                     "3 - ** \n" +
                                     "4 - ** \n" +
                                     "5 - ** \n\n" +
@@ -106,6 +106,10 @@ class Program
                     jobStats.CreateJobStats(stringConexao);
                            
                 }
+                else if(funcionalidade == 2) {
+                    Job jobRefresh = new Job(stringConexao);    
+                    jobRefresh.CreateJobRefreshProc(stringConexao);
+                }                
             }
         }
     }

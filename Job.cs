@@ -195,6 +195,133 @@ namespace SetupDatabase {
                 Console.ReadLine();
                 return result;
             }
+
+
+        }
+        public string CreateJobRefreshProc(string stringConexao) {
+            string result;
+            StringBuilder errorMessages = new StringBuilder();
+
+            try {
+                using (SqlConnection connection = new SqlConnection(stringConexao)) {
+                    connection.Open();
+
+                    string createJobRefresh =
+                    $@"
+                    USE [msdb];
+
+                    /****** Object:  Job [DBA - RefreshProcedures - autosetup]    Script Date: 13/11/2023 23:31:23 ******/
+                    BEGIN TRANSACTION
+                    DECLARE @ReturnCode INT
+                    SELECT @ReturnCode = 0
+                    /****** Object:  JobCategory [Database Maintenance]    Script Date: 13/11/2023 23:31:23 ******/
+                    IF NOT EXISTS (SELECT name FROM msdb.dbo.syscategories WHERE name=N'Database Maintenance' AND category_class=1)
+                    BEGIN
+                    EXEC @ReturnCode = msdb.dbo.sp_add_category @class=N'JOB', @type=N'LOCAL', @name=N'Database Maintenance'
+                    IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+                    
+                    END
+                    
+                    DECLARE @jobId BINARY(16)
+                    EXEC @ReturnCode =  msdb.dbo.sp_add_job @job_name=N'DBA - RefreshProcedures - autosetup', 
+                    		@enabled=1, 
+                    		@notify_level_eventlog=0, 
+                    		@notify_level_email=0, 
+                    		@notify_level_netsend=0, 
+                    		@notify_level_page=0, 
+                    		@delete_level=0, 
+                    		@description=N'Refresh all procedures - weekly', 
+                    		@category_name=N'Database Maintenance', 
+                    		@owner_login_name=N'sa', @job_id = @jobId OUTPUT
+                    IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+                    /****** Object:  Step [RefreshAllDatabases]    Script Date: 13/11/2023 23:31:23 ******/
+                    EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'RefreshAllDatabases', 
+                    		@step_id=1, 
+                    		@cmdexec_success_code=0, 
+                    		@on_success_action=1, 
+                    		@on_success_step_id=0, 
+                    		@on_fail_action=2, 
+                    		@on_fail_step_id=0, 
+                    		@retry_attempts=0, 
+                    		@retry_interval=0, 
+                    		@os_run_priority=0, @subsystem=N'TSQL', 
+                    		@command=N'exec sp_MSforeachdb ''		
+                    
+                    		USE [?];
+                    
+                    		if exists (select 1 from sys.databases where ''''[''''+name+'''']'''' =  ''''[?]'''' and database_id > 4)
+                    		begin			
+                    			select ''''[?]'''' as namesss
+                    			DECLARE @sql NVARCHAR(MAX) = '''''''';
+                    				SELECT @sql += ''''EXEC sp_recompile ''''''''''''+s.[name]+ ''''.''''+ o.[name]+''''''''''''''''+CHAR(10) 
+                    				FROM sys.objects o
+                    				JOIN sys.schemas s on s.schema_id = o.schema_id
+                    				WHERE [type] IN (''''P'''', ''''FN'''', ''''IF'''');
+                    			PRINT (@SQL)
+                    			EXEC (@sql);
+                    		end''', 
+                    		@database_name=N'master', 
+                    		@flags=0
+                    IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+                    EXEC @ReturnCode = msdb.dbo.sp_update_job @job_id = @jobId, @start_step_id = 1
+                    IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+                    EXEC @ReturnCode = msdb.dbo.sp_add_jobschedule @job_id=@jobId, @name=N'Weekly', 
+                    		@enabled=1, 
+                    		@freq_type=8, 
+                    		@freq_interval=2, 
+                    		@freq_subday_type=1, 
+                    		@freq_subday_interval=0, 
+                    		@freq_relative_interval=0, 
+                    		@freq_recurrence_factor=1, 
+                    		@active_start_date=20231113, 
+                    		@active_end_date=99991231, 
+                    		@active_start_time=40000, 
+                    		@active_end_time=235959, 
+                    		@schedule_uid=N'b0636639-2aee-4eae-a6a2-7e2bc88b558e'
+                    IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+                    EXEC @ReturnCode = msdb.dbo.sp_add_jobserver @job_id = @jobId, @server_name = N'(local)'
+                    IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+                    COMMIT TRANSACTION
+                    GOTO EndSave
+                    QuitWithRollback:
+                        IF (@@TRANCOUNT > 0) ROLLBACK TRANSACTION
+                    EndSave:
+                    ";
+
+                    using (SqlCommand command = new SqlCommand(createJobRefresh, connection)) {
+                        try {
+                            command.ExecuteNonQuery();
+                        }
+                        catch (SqlException ex) {
+
+                            for (int i = 0; i < ex.Errors.Count; i++) {
+                                errorMessages.Append("Index #" + i + "\n" +
+                                    "Message: " + ex.Errors[i].Message + "\n" +
+                                    "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                                    "Source: " + ex.Errors[i].Source + "\n");
+                            }
+                            Console.WriteLine(errorMessages.ToString());
+                        }
+                    }
+                }
+                result = $"\n\n Job [DBA - UpdateStatisticsFull - autosetup] criado com sucesso! Por default o agendamento esta às 02 da manhã.";
+                Console.WriteLine(result);
+                Console.ReadLine();
+                return result;
+            }
+            catch (SqlException ex) {
+
+                for (int i = 0; i < ex.Errors.Count; i++) {
+                    errorMessages.Append("Index #" + i + "\n" +
+                        "Message: " + ex.Errors[i].Message + "\n" +
+                        "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                        "Source: " + ex.Errors[i].Source + "\n");
+                }
+                Console.WriteLine(errorMessages.ToString());
+                result = errorMessages.ToString();
+                Console.ReadLine();
+                return result;
+            }
         }
     }
 }
