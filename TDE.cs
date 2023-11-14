@@ -194,7 +194,6 @@ namespace SetupDatabase
                 
             }
         }
-
         public void CheckTDEDatabase(string connectionString, string hostname)
         {
             string queryString = 
