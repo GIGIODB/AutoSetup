@@ -98,11 +98,13 @@ class Program
                                     "5 - ** \n\n" +
                                     "0 - Sair"
                                     );
-            
-                if(funcionalidade == 1){            
-                    jobs    createJob = new jobs(stringConexao);
-                   // Jobs createJobStats = new Jobs(stringConexao);
-                    createJob.CreateJobStats(stringConexao);            
+
+                funcionalidade = int.Parse(Console.ReadLine());
+
+                if (funcionalidade == 1){
+                    Job jobStats = new Job(stringConexao);
+                    jobStats.CreateJobStats(stringConexao);
+                           
                 }
             }
         }

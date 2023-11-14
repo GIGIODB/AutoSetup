@@ -1,27 +1,28 @@
-using Microsoft.Data.SqlClient;
+﻿using Microsoft.Data.SqlClient;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
-namespace AutoSetup
-{
-    public class Jobs
-    {
+namespace SetupDatabase {
+    public class Job {
         private string connectionString;
-
-        public Jobs(string connectionString){
+        public Job(string connectionString) {
             this.connectionString = connectionString;
         }
+
         public string CreateJobStats(string stringConexao) {
             string result;
             StringBuilder errorMessages = new StringBuilder();
-                        
+
             try {
                 using (SqlConnection connection = new SqlConnection(stringConexao)) {
                     connection.Open();
 
-                    string createJobStats = 
+                    string createJobStats =
                     $@"
-                    USE [msdb]
-                    GO                   
+                    USE [msdb];                                      
 
                     	/****** Object:  Job [DBA - UpdateStatisticsFull - autosetup]    Script Date: 11/13/2023 10:08:09 PM ******/
                     	BEGIN TRANSACTION
@@ -158,11 +159,11 @@ namespace AutoSetup
                     	QuitWithRollback:
                     	    IF (@@TRANCOUNT > 0) ROLLBACK TRANSACTION
                     	EndSave:
-                        GO";
+                        ";
 
-                        using (SqlCommand command = new SqlCommand(createJobStats, connection)) {
+                    using (SqlCommand command = new SqlCommand(createJobStats, connection)) {
                         try {
-                            command.ExecuteNonQuery();                            
+                            command.ExecuteNonQuery();
                         }
                         catch (SqlException ex) {
 
@@ -179,7 +180,7 @@ namespace AutoSetup
                 result = $"\n\n Job [DBA - UpdateStatisticsFull - autosetup] criado com sucesso! Por default o agendamento esta às 02 da manhã.";
                 Console.WriteLine(result);
                 Console.ReadLine();
-                return result;                                
+                return result;
             }
             catch (SqlException ex) {
 
@@ -193,7 +194,6 @@ namespace AutoSetup
                 result = errorMessages.ToString();
                 Console.ReadLine();
                 return result;
-                
             }
         }
     }
