@@ -7,11 +7,14 @@ namespace SetupDatabase;
 class Program
 {
     static void Main()
-    {                
-        string stringConexao = "Data Source=GIGIOMACHINE;Initial Catalog=master;Integrated Security=True;TrustServerCertificate=True";
+    {           
+        Console.WriteLine("Qual servidor deseja se conectar:"); 
+        string hostname = Console.ReadLine();
+
+        string stringConexao = $"Data Source={hostname};Initial Catalog=master;Integrated Security=True;TrustServerCertificate=True";
 
         int funcionalidade = 2;
-        string hostname = Environment.MachineName;        
+        
 
         while (funcionalidade != 0) {
             Console.Clear();
@@ -19,7 +22,8 @@ class Program
             Console.WriteLine("1 - Create Master Key \n" +
                                 "2 - Check TDE \n" +
                                 "3 - Create certificate TDE \n" +
-                                "4 - Backup certificate TDE \n\n" +
+                                "4 - Backup certificate TDE \n" +
+                                "5 - Check CertTDE Databases \n\n" +
                                 "0 - Sair"
                                 );
 
@@ -62,6 +66,12 @@ class Program
                 TDE backupCert = new TDE(stringConexao);
                 //string resulCreate = 
                 backupCert.BackupCertTDE(stringConexao, hostname, senhaCert);
+
+            }else if(funcionalidade == 5){                                                
+
+                TDE checkTdeDatabase = new TDE(stringConexao);
+                //string resulCreate = 
+                checkTdeDatabase.CheckTDEDatabase(stringConexao, hostname);
 
             }
         }

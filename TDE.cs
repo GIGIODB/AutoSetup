@@ -136,7 +136,7 @@ namespace SetupDatabase
                 Console.WriteLine(errorMessages.ToString());
             }
         }
-        public void BackupCertTDE(string stringConexao, string hostname, string masterKeyPassword) {
+        public string BackupCertTDE(string stringConexao, string hostname, string masterKeyPassword) {
             string result, pathBackupCert;
             StringBuilder errorMessages = new StringBuilder();
 
@@ -144,7 +144,8 @@ namespace SetupDatabase
             pathBackupCert = Console.ReadLine();
             if (pathBackupCert == null) {
                 Console.WriteLine("Obrigatório informar um path.");
-                return;
+                result = "Obrigatório informar um path.";
+                return result;
             }
             try {
                 using (SqlConnection connection = new SqlConnection(stringConexao)) {
@@ -173,8 +174,10 @@ namespace SetupDatabase
                         }
                     }
                 }
-                result = $"Certificado exportado com sucesso! Verifique em C:\\temp\\certificadotde\\cert_tde_{hostname}";
+                result = $"\n\n Certificado exportado com sucesso! Verifique em {pathBackupCert}\\cert_tde_{hostname}";
                 Console.WriteLine(result);
+                Console.ReadLine();
+                return result;                                
             }
             catch (SqlException ex) {
 
@@ -185,6 +188,53 @@ namespace SetupDatabase
                         "Source: " + ex.Errors[i].Source + "\n");
                 }
                 Console.WriteLine(errorMessages.ToString());
+                result = errorMessages.ToString();
+                Console.ReadLine();
+                return result;
+                
+            }
+        }
+
+        public void CheckTDEDatabase(string connectionString, string hostname)
+        {
+            string queryString = 
+            @$"SELECT
+	            convert(char(40),A.[name]) as name,
+	            convert(char(40),isnull(C.name,'No certificate')) as certificate,	            
+	            isnull(A.is_encrypted,0) as is_encrypted
+            FROM sys.databases A
+	        LEFT JOIN sys.dm_database_encryption_keys B ON B.database_id = A.database_id
+	        LEFT JOIN sys.certificates c on c.thumbprint = b.encryptor_thumbprint
+            where A.database_id > 4
+            and C.name not like 'cert_tde_{hostname}';";
+
+            using (SqlConnection connection = new SqlConnection(connectionString)){
+                SqlCommand command =
+                    new SqlCommand(queryString, connection);
+                connection.Open();
+
+                SqlDataReader reader = command.ExecuteReader();
+
+                if (reader.HasRows){
+                    Console.Clear();
+                    Console.WriteLine("BANCOS DE DADOS FORA DO PADRÃO:");
+                    Console.WriteLine("Database;\t                                       Certicate;\t                               is_encrypted;");
+                    // Obtain a row from the query result.
+                    while (reader.Read())
+                    {
+                        Console.WriteLine("{0};\t       {1};\t     {2};", 
+                            reader.GetString(0),
+                            reader.GetString(1),
+                            reader.GetBoolean(2)
+                            );
+                    }
+                }else{
+                        Console.WriteLine("No rows found.");
+                }
+                
+                // Call Close when done reading.
+                reader.Close();
+                Console.ReadLine();
             }
         }
     }
