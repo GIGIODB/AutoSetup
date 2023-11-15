@@ -1,5 +1,4 @@
 ﻿using Microsoft.Data.SqlClient;
-using System.Security.Cryptography.X509Certificates;
 using System.Xml;
 
 namespace SetupDatabase;
@@ -32,7 +31,11 @@ class Program
                                     "2 - Check TDE \n" +
                                     "3 - Create certificate TDE \n" +
                                     "4 - Backup certificate TDE \n" +
-                                    "5 - Check CertTDE Databases \n\n" +
+                                    "5 - Check CertTDE Databases \n" +
+                                    "6 - Import Certificado TDE \n" +
+                                    "7 - Encrypt Database with Cert \n" +
+                                    "8 - Dencrypt Database \n\n" +
+
                                     "0 - Sair"
                                     );
 
@@ -81,8 +84,26 @@ class Program
                     TDE checkTdeDatabase = new TDE(stringConexao);
                     //string resulCreate = 
                     checkTdeDatabase.CheckTDEDatabase(stringConexao, hostname);
+                }else if (funcionalidade == 6) {
 
+                    TDE importCert = new TDE(stringConexao);
+                    //string resulCreate = 
+                    importCert.ImportCertTDE(stringConexao);
+
+                }else if (funcionalidade == 7) {
+
+                    TDE encryptDb = new TDE(stringConexao);
+                    //string resulCreate = 
+                    encryptDb.EncryptDatabase(stringConexao);
+
+                }else if (funcionalidade == 8) {
+
+                    TDE decryptDb = new TDE(stringConexao);
+                    //string resulCreate = 
+                    decryptDb.DecryptDatabase(stringConexao);
                 }
+
+                
             }
         }
         else if (modulo == 2){

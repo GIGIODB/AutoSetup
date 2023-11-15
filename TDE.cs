@@ -1,11 +1,7 @@
 ﻿using Microsoft.Data.SqlClient;
-using Microsoft.Identity.Client;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Numerics;
 using System.Text;
-using System.Threading.Channels;
-using System.Threading.Tasks;
+
 
 namespace SetupDatabase
 {
@@ -36,7 +32,7 @@ namespace SetupDatabase
                         }
                     }
                 }
-                return "Certificado existente: "+resultado;
+                return "Certificado: "+resultado;
             }
             catch (Exception ex){
                 // Trate exceções conforme necessário
@@ -198,14 +194,14 @@ namespace SetupDatabase
         {
             string queryString = 
             @$"SELECT
-	            convert(char(40),A.[name]) as name,
-	            convert(char(40),isnull(C.name,'No certificate')) as certificate,	            
+	            A.[name] as name,
+	            isnull(C.name,'No certificate') as certificate,	            
 	            isnull(A.is_encrypted,0) as is_encrypted
             FROM sys.databases A
 	        LEFT JOIN sys.dm_database_encryption_keys B ON B.database_id = A.database_id
 	        LEFT JOIN sys.certificates c on c.thumbprint = b.encryptor_thumbprint
             where A.database_id > 4
-            and C.name not like 'cert_tde_{hostname}';";
+            and isnull(C.name,'No certificate') not like 'cert_tde_{hostname}';";
 
             using (SqlConnection connection = new SqlConnection(connectionString)){
                 SqlCommand command =
@@ -216,16 +212,17 @@ namespace SetupDatabase
 
                 if (reader.HasRows){
                     Console.Clear();
-                    Console.WriteLine("BANCOS DE DADOS FORA DO PADRÃO:");
-                    Console.WriteLine("Database;\t                                       Certicate;\t                               is_encrypted;");
+                    Console.WriteLine("Databases pendentes:");                    
+                        Console.WriteLine("{0,-15} | {1,-20} | {2,-10}", "Database", "Certicate", "is_encrypted");
+
                     // Obtain a row from the query result.
                     while (reader.Read())
                     {
-                        Console.WriteLine("{0};\t       {1};\t     {2};", 
+                        Console.WriteLine("{0,-15} | {1,-20} | {2,-10:C}",
                             reader.GetString(0),
                             reader.GetString(1),
                             reader.GetBoolean(2)
-                            );
+                            );           
                     }
                 }else{
                         Console.WriteLine("No rows found.");
@@ -235,6 +232,279 @@ namespace SetupDatabase
                 reader.Close();
                 Console.ReadLine();
             }
+        }
+        public string ImportCertTDE(string stringConexao) {
+            string result, nameCert, pathImportCer, pathImportKey, masterKeyPassword;
+            
+            StringBuilder errorMessages = new StringBuilder();
+
+            Console.WriteLine("Informe o do certificado:");
+            nameCert = Console.ReadLine();
+
+            Console.WriteLine("Informe o path do arquivo .cer:");
+            pathImportCer = Console.ReadLine();
+
+            Console.WriteLine("Informe o path do arquivo .key:");
+            pathImportKey = Console.ReadLine();
+
+            Console.WriteLine("Informe a senha do certificado:");
+            masterKeyPassword = Console.ReadLine();
+
+            try {
+                using (SqlConnection connection = new SqlConnection(stringConexao)) {
+                    connection.Open();
+
+                    string createCertTdeQuery = $@"USE master;                                  
+                                                CREATE CERTIFICATE {nameCert} 
+                                                FROM FILE = '{pathImportCer}'   
+                                                	WITH PRIVATE KEY (
+                                                	FILE = N'{pathImportKey}',   
+                                                	DECRYPTION BY PASSWORD = '{masterKeyPassword}'
+                                                );";
+
+                    using (SqlCommand command = new SqlCommand(createCertTdeQuery, connection)) {
+                        try {
+                            command.ExecuteNonQuery();
+                        }
+                        catch (SqlException ex) {
+
+                            for (int i = 0; i < ex.Errors.Count; i++) {
+                                errorMessages.Append("Index #" + i + "\n" +
+                                    "Message: " + ex.Errors[i].Message + "\n" +
+                                    "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                                    "Source: " + ex.Errors[i].Source + "\n");
+                            }
+                            Console.WriteLine(errorMessages.ToString());
+                        }
+                    }
+                }
+                result = $"\n\n Certificado importado com sucesso!";
+                Console.WriteLine(result);
+                Console.ReadLine();
+                return result;
+            }
+            catch (SqlException ex) {
+
+                for (int i = 0; i < ex.Errors.Count; i++) {
+                    errorMessages.Append("Index #" + i + "\n" +
+                        "Message: " + ex.Errors[i].Message + "\n" +
+                        "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                        "Source: " + ex.Errors[i].Source + "\n");
+                }
+                Console.WriteLine(errorMessages.ToString());
+                result = errorMessages.ToString();
+                Console.ReadLine();
+                return result;
+            }
+        }
+        public string EncryptDatabase(string stringConexao) {
+            string result, databaseName, nameCert;
+
+            StringBuilder errorMessages = new StringBuilder();
+
+            Console.WriteLine("Informe o database a ser encryptado:");
+            databaseName = Console.ReadLine();
+
+            Console.WriteLine("Informe o do certificado:");
+            nameCert = Console.ReadLine();
+
+            try {
+                using (SqlConnection connection = new SqlConnection(stringConexao)) {
+                    connection.Open();
+
+                    string createCertTdeQuery = $@"USE {databaseName};                                                                                  
+                                                
+                                    if not exists (	select 1 FROM sys.databases A 
+                                        JOIN sys.dm_database_encryption_keys B ON B.database_id = A.database_id
+	                                    where a.name = '{databaseName}')
+                                    begin
+                                                CREATE DATABASE ENCRYPTION KEY
+                                                WITH ALGORITHM = AES_256
+                                                ENCRYPTION BY SERVER CERTIFICATE {nameCert};
+                                                                                               
+                                                ALTER DATABASE {databaseName} SET ENCRYPTION ON;
+                                    end";
+                                    
+                    using (SqlCommand command = new SqlCommand(createCertTdeQuery, connection)) {
+                        try {
+                            command.ExecuteNonQuery();
+                        }
+
+
+                        catch (SqlException ex) {
+
+                            for (int i = 0; i < ex.Errors.Count; i++) {
+                                errorMessages.Append("Index #" + i + "\n" +
+                                    "Message: " + ex.Errors[i].Message + "\n" +
+                                    "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                                    "Source: " + ex.Errors[i].Source + "\n");
+                            }
+                            Console.WriteLine(errorMessages.ToString());
+                        }
+                    }
+
+                    TDE checkEncrypt = new TDE(stringConexao);
+                    checkEncrypt.CheckEncryptDatabase(stringConexao, databaseName);
+                }
+                result = $"\n\n Banco de dados Encryptado com sucesso!";
+                Console.WriteLine(result);
+                Console.ReadLine();
+                return result;
+            }
+            catch (SqlException ex) {
+
+                for (int i = 0; i < ex.Errors.Count; i++) {
+                    errorMessages.Append("Index #" + i + "\n" +
+                        "Message: " + ex.Errors[i].Message + "\n" +
+                        "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                        "Source: " + ex.Errors[i].Source + "\n");
+                }
+                Console.WriteLine(errorMessages.ToString());
+                result = errorMessages.ToString();
+                Console.ReadLine();
+                return result;
+            }
+        }
+        public string DecryptDatabase(string stringConexao) {
+            string result, databaseName;
+            char confirm, confirmOk;
+
+            StringBuilder errorMessages = new StringBuilder();
+
+            Console.WriteLine("Informe o database para Decrypt:");
+            databaseName = Console.ReadLine();
+
+            Console.WriteLine($"Tem certeza que deseja retirar o TDE do banco de dados: {databaseName}");
+            Console.WriteLine("Digite 'S' para prosseguir:");
+
+            confirmOk = 'S';
+            confirm = char.Parse(Console.ReadLine());
+            bool valida  = confirmOk.Equals( confirm );
+
+            if ( valida == false) {
+                Console.WriteLine("Você não confirmou a operação e a aplicação será encerrada!");
+                Environment.Exit(0);
+            }
+
+
+            try {
+                using (SqlConnection connection = new SqlConnection(stringConexao)) {
+                    connection.Open();
+
+                    string decryptedQuery = $@"USE {databaseName};                                                                                  
+                                                
+                                    if exists (	select 1 FROM sys.databases A 
+                                        JOIN sys.dm_database_encryption_keys B ON B.database_id = A.database_id
+	                                    where a.name = '{databaseName}' and encryption_state = 3)
+                                    begin
+                                        ALTER DATABASE {databaseName} SET ENCRYPTION OFF;    	                                
+                                    end";
+
+                    using (SqlCommand command = new SqlCommand(decryptedQuery, connection)) {
+                        try {
+                            command.ExecuteNonQuery();
+                        }
+                        catch (SqlException ex) {
+
+                            for (int i = 0; i < ex.Errors.Count; i++) {
+                                errorMessages.Append("Index #" + i + "\n" +
+                                    "Message: " + ex.Errors[i].Message + "\n" +
+                                    "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                                    "Source: " + ex.Errors[i].Source + "\n");
+                            }
+                            Console.WriteLine(errorMessages.ToString());
+                        }
+                    }
+
+                    TDE checkEncrypt = new TDE(stringConexao);
+                    checkEncrypt.CheckEncryptDatabase(stringConexao, databaseName);
+
+                    string dropDecryptedQuery = $@"USE {databaseName};                                                                                  
+                                                
+                                    if exists (	select 1 FROM sys.databases A 
+                                        JOIN sys.dm_database_encryption_keys B ON B.database_id = A.database_id
+	                                    where a.name = '{databaseName}' and encryption_state = 1)
+                                    begin
+                    
+                                        DROP DATABASE ENCRYPTION KEY;    	                                
+                                    end";
+
+                    using (SqlCommand command = new SqlCommand(dropDecryptedQuery, connection)) {
+                        try {
+                            command.ExecuteNonQuery();
+                        }
+                        catch (SqlException ex) {
+
+                            for (int i = 0; i < ex.Errors.Count; i++) {
+                                errorMessages.Append("Index #" + i + "\n" +
+                                    "Message: " + ex.Errors[i].Message + "\n" +
+                                    "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                                    "Source: " + ex.Errors[i].Source + "\n");
+                            }
+                            Console.WriteLine(errorMessages.ToString());
+                        }
+                    }
+                    
+                }
+                result = $"\n\n DATABASE ENCRYPTION KEY EXCLUÍDO!";
+                Console.WriteLine(result);
+                Console.ReadLine();
+                return result;
+            }
+            catch (SqlException ex) {
+
+                for (int i = 0; i < ex.Errors.Count; i++) {
+                    errorMessages.Append("Index #" + i + "\n" +
+                        "Message: " + ex.Errors[i].Message + "\n" +
+                        "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                        "Source: " + ex.Errors[i].Source + "\n");
+                }
+                Console.WriteLine(errorMessages.ToString());
+                result = errorMessages.ToString();
+                Console.ReadLine();
+                return result;
+            }
+        }
+        public void CheckEncryptDatabase(string connectionString, string databaseName) {
+
+            float percentComplete = 1;
+
+            string queryString =
+            @$"	select percent_complete FROM sys.databases A 
+                JOIN sys.dm_database_encryption_keys B ON B.database_id = A.database_id
+	            where a.name = '{databaseName}';";
+
+            while (percentComplete > 0) { 
+                using (SqlConnection connection = new SqlConnection(connectionString)) {
+                    SqlCommand command =
+                        new SqlCommand(queryString, connection);
+                    connection.Open();
+
+                    SqlDataReader reader = command.ExecuteReader();
+
+                    if (reader.HasRows) {
+                        Console.Clear();
+                        
+                        // Obtain a row from the query result.
+                        while (reader.Read()) {
+                            Console.WriteLine("Status % complete: {0,-15}", reader.GetFloat(0));
+                            percentComplete = reader.GetFloat(0);
+                        }
+                    }
+                    else {
+                        Console.WriteLine("O banco de dados informado não atende os requisitos para esta operação.");                        
+                        Console.ReadLine();
+                        Environment.Exit(0);
+                    }
+
+                    // Call Close when done reading.
+                    reader.Close();                       
+                }
+            }
+            Console.Clear();
+            Console.WriteLine("Status % complete: 100%");
+            Console.WriteLine($"Database: [{databaseName}] - Processo concluído com sucesso!");
+            Console.ReadLine();
         }
     }
 }
