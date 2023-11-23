@@ -99,7 +99,7 @@ namespace SetupDatabase
                     connection.Open();
                     
                     string createCertTdeQuery = $@"USE master; 
-                                                CREATE CERTIFICATE cert_tde_{hostname} WITH SUBJECT = 'cert_tde_{hostname}';";
+                                                CREATE CERTIFICATE [cert_tde_{hostname}] WITH SUBJECT = 'cert_tde_{hostname}';";
                     using (SqlCommand command = new SqlCommand(createCertTdeQuery, connection))
                     {
                         try{
@@ -148,7 +148,7 @@ namespace SetupDatabase
                     connection.Open();
 
                     string createCertTdeQuery = $@"USE master;                                  
-                                                BACKUP CERTIFICATE cert_tde_{hostname} 
+                                                BACKUP CERTIFICATE [cert_tde_{hostname}] 
                                                 TO FILE = '{pathBackupCert}\cert_tde_{hostname}.cer'   
                                                 	WITH PRIVATE KEY (
                                                 	    FILE = N'{pathBackupCert}\cert_tde_{hostname}.key',   
@@ -472,7 +472,10 @@ namespace SetupDatabase
             string queryString =
             @$"	select percent_complete FROM sys.databases A 
                 JOIN sys.dm_database_encryption_keys B ON B.database_id = A.database_id
-	            where a.name = '{databaseName}';";
+	            where a.name = '{databaseName}';
+                
+                waitfor delay '00:00:01'
+                ";
 
             while (percentComplete > 0) { 
                 using (SqlConnection connection = new SqlConnection(connectionString)) {
@@ -487,7 +490,7 @@ namespace SetupDatabase
                         
                         // Obtain a row from the query result.
                         while (reader.Read()) {
-                            Console.WriteLine("Status % complete: {0,-15}", reader.GetFloat(0));
+                            Console.WriteLine("Status % complete: {0,-15}", Convert.ToInt32(reader.GetFloat(0)));
                             percentComplete = reader.GetFloat(0);
                         }
                     }
