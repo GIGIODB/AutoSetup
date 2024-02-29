@@ -312,7 +312,7 @@ namespace SetupDatabase
                 using (SqlConnection connection = new SqlConnection(stringConexao)) {
                     connection.Open();
 
-                    string createCertTdeQuery = $@"USE {databaseName};                                                                                  
+                    string createCertTdeQuery = $@"USE [{databaseName}];                                                                                  
                                                 
                                     if not exists (	select 1 FROM sys.databases A 
                                         JOIN sys.dm_database_encryption_keys B ON B.database_id = A.database_id
@@ -320,9 +320,9 @@ namespace SetupDatabase
                                     begin
                                                 CREATE DATABASE ENCRYPTION KEY
                                                 WITH ALGORITHM = AES_256
-                                                ENCRYPTION BY SERVER CERTIFICATE {nameCert};
+                                                ENCRYPTION BY SERVER CERTIFICATE [{nameCert}];
                                                                                                
-                                                ALTER DATABASE {databaseName} SET ENCRYPTION ON;
+                                                ALTER DATABASE [{databaseName}] SET ENCRYPTION ON;
                                     end";
                                     
                     using (SqlCommand command = new SqlCommand(createCertTdeQuery, connection)) {
@@ -391,13 +391,13 @@ namespace SetupDatabase
                 using (SqlConnection connection = new SqlConnection(stringConexao)) {
                     connection.Open();
 
-                    string decryptedQuery = $@"USE {databaseName};                                                                                  
+                    string decryptedQuery = $@"USE [{databaseName}];                                                                                  
                                                 
                                     if exists (	select 1 FROM sys.databases A 
                                         JOIN sys.dm_database_encryption_keys B ON B.database_id = A.database_id
 	                                    where a.name = '{databaseName}' and encryption_state = 3)
                                     begin
-                                        ALTER DATABASE {databaseName} SET ENCRYPTION OFF;    	                                
+                                        ALTER DATABASE [{databaseName}] SET ENCRYPTION OFF;    	                                
                                     end";
 
                     using (SqlCommand command = new SqlCommand(decryptedQuery, connection)) {
